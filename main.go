@@ -80,8 +80,8 @@ func userCalendar(c *gin.Context) {
 	countSum := strings.TrimSpace(countArr[0])
 	dataBoxDiv := contributions.Find("div")
 	dataDiv := dataBoxDiv.Find("div")
-	dataFrom := dataDiv.AttrOr("data-from", "data from")
-	dataTo := dataDiv.AttrOr("data-to", "data to")
+	dataFrom := dataDiv.AttrOr("data-from", "")
+	dataTo := dataDiv.AttrOr("data-to", "")
 	dataSvg := dataDiv.Find("svg > g")
 
 	dataArr := make([][]string, 0)
