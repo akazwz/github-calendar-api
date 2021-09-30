@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -32,6 +33,12 @@ func main() {
 	if err := s.ListenAndServe(); err != nil {
 		fmt.Println(`System Serve Start Error`)
 	}
+}
+
+type Contribution struct {
+	Date  string `json:"date"`
+	Count int    `json:"count"`
+	Level int    `json:"level"`
 }
 
 func userCalendar(c *gin.Context) {
@@ -73,38 +80,84 @@ func userCalendar(c *gin.Context) {
 		})
 	}
 
-	contributions := doc.Find("#js-pjax-container > div.container-xl.px-3.px-md-4.px-lg-5 > div > div.flex-shrink-0.col-12.col-md-9.mb-4.mb-md-0 > div:nth-child(2) > div > div.mt-4.position-relative > div > div.col-12.col-lg-10 > div.js-yearly-contributions > div:nth-child(1)")
-	contributeCountText := contributions.Find("h2").Text()
+	dataArr := make([]Contribution, 0)
+	dataGraph := doc.Find("svg.js-calendar-graph-svg > g")
+	dataGraph.Find("g").Each(func(i int, g *goquery.Selection) {
+		g.Find("rect.ContributionCalendar-day").Each(func(i int, rect *goquery.Selection) {
+			dataDate, exists := rect.Attr("data-date")
+			if !exists {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"code": 4003,
+					"msg":  "no data",
+				})
+				return
+			}
+
+			dataCount, exists := rect.Attr("data-count")
+			if !exists {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"code": 4003,
+					"msg":  "no data",
+				})
+				return
+			}
+
+			count, err2 := strconv.Atoi(dataCount)
+			if err2 != nil {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"code": 4004,
+					"msg":  "to int error",
+				})
+				return
+			}
+
+			dataLevel, exists := rect.Attr("data-level")
+			if !exists {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"code": 4003,
+					"msg":  "no data",
+				})
+				return
+			}
+			level, err3 := strconv.Atoi(dataLevel)
+			if err3 != nil {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"code": 4004,
+					"msg":  "to int error",
+				})
+				return
+			}
+
+			dataArr = append(dataArr, Contribution{
+				Date:  dataDate,
+				Count: count,
+				Level: level,
+			})
+		})
+	})
+	contributeCountText := doc.Find("div.js-yearly-contributions > div > h2").Text()
 	trimCount := strings.TrimSpace(contributeCountText)
 	countArr := strings.Split(trimCount, " ")
 	countSum := strings.TrimSpace(countArr[0])
-	dataBoxDiv := contributions.Find("div")
-	dataDiv := dataBoxDiv.Find("div")
-	dataFrom := dataDiv.AttrOr("data-from", "")
-	dataTo := dataDiv.AttrOr("data-to", "")
-	dataSvg := dataDiv.Find("svg > g")
-
-	dataArr := make([][]string, 0)
-	dataArr = append(dataArr, []string{"count", "date", "level"})
-	dataSvg.Find("g").Each(func(index int, selection *goquery.Selection) {
-		selection.Find("rect").Each(func(i int, rect *goquery.Selection) {
-			count := rect.AttrOr("data-count", "0")
-			date := rect.AttrOr("data-date", "0")
-			level := rect.AttrOr("data-level", "0")
-			arr := []string{count, date, level}
-			dataArr = append(dataArr, arr)
+	total := strings.ReplaceAll(countSum, ",", "")
+	totalInt, err := strconv.Atoi(total)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"code": 4005,
+			"msg":  "get total error",
 		})
-	})
+		return
+	}
+
 	end := time.Now()
-	fmt.Println(end.Sub(start))
+	log.Println(end.Sub(start))
+
 	c.JSON(http.StatusOK, gin.H{
 		"code": 2000,
 		"msg":  "success",
 		"data": gin.H{
-			"sum_count": countSum,
-			"data_from": dataFrom,
-			"data_to":   dataTo,
-			"sum_data":  dataArr,
+			"total":         totalInt,
+			"contributions": dataArr,
 		},
 	})
 }
