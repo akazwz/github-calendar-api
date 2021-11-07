@@ -45,7 +45,7 @@ func userCalendar(c *gin.Context) {
 	username := c.Param("username")
 	start := time.Now()
 	// 国内使用镜像站
-	res, err := http.Get("https://hub.fastgit.org/" + username)
+	res, err := http.Get("https://github.com" + username)
 	if err != nil {
 		log.Println("get github error")
 		c.JSON(http.StatusBadRequest, gin.H{
